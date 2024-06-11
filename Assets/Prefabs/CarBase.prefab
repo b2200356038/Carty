@@ -13,10 +13,10 @@ GameObject:
   - component: {fileID: 4589494835873792973}
   - component: {fileID: 5561990625777611556}
   - component: {fileID: 733734184512510233}
-  - component: {fileID: -7375233525085288347}
+  - component: {fileID: -4576950209517682435}
   m_Layer: 0
   m_Name: CarBase
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -223,6 +223,9 @@ MonoBehaviour:
   maxAngle: 45
   accelerationInput: 0
   steeringInput: 0
+  powerUpCount: 0
+  powerUpLimit: 0
+  powerUps: 
 --- !u!54 &5561990625777611556
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -281,7 +284,7 @@ MonoBehaviour:
   InLocalSpace: 0
   Interpolate: 1
   SlerpPosition: 0
---- !u!114 &-7375233525085288347
+--- !u!114 &-4576950209517682435
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

@@ -1,14 +1,19 @@
-
 using System.Collections;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+
 public class CarController : NetworkBehaviour
 {
-    [Header("Car Properties")]
-    public float carSpeed;
+    [Header("Car Properties")] public float carSpeed;
     public bool isPlayerCar;
-    public NetworkVariable<bool> isReady = new NetworkVariable<bool>(false,NetworkVariableReadPermission.Everyone,NetworkVariableWritePermission.Owner);
-    public NetworkVariable<int> carHealth;
+
+    public NetworkVariable<bool> isReady = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Owner);
+
+    public NetworkVariable<int> carHealth = new NetworkVariable<int>(100, NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Owner);
+
     public Transform[] wheels;
     public Transform[] wheelMeshes;
     public Rigidbody carRigidbody;
@@ -16,68 +21,75 @@ public class CarController : NetworkBehaviour
     public float carTopSpeed = 10f;
     public float speedFactor = 1000f;
     public float breakFactor = 1000f;
-    
+
     public float rotationSpeed = 360f;
     public bool isBreaking;
-    
-    [Header("Car Jump Properties")]
-    public int jumpFactor = 10;
+
+    [Header("Car Jump Properties")] public int jumpFactor = 10;
     public float jumpTime = 1f;
     public int stretchFactor = 10;
-    public bool isJump; 
-    
-    [Header("Car Nitro Properties")]
-    public float nitroAmount, maxNitroAmount = 3f;
+    public bool isJump;
+
+    [Header("Car Nitro Properties")] public float nitroAmount, maxNitroAmount = 3f;
     public float nitroFactor = 1000f;
     public AnimationCurve nitroCurve;
-    
-    [Header("Car Suspension Properties")]
-    public float suspensionSpringForce = 20000f;
+
+    [Header("Car Suspension Properties")] public float suspensionSpringForce = 20000f;
     public float suspensionDamperForce = 2000f;
     public float suspensionRestDistance = 0.5f;
-    
-    [Header("Car Steering Properties")]
-    public NetworkVariable<int> wheelAngle = new NetworkVariable<int>(30,NetworkVariableReadPermission.Everyone,NetworkVariableWritePermission.Owner);
+
+    [Header("Car Steering Properties")] public NetworkVariable<int> wheelAngle =
+        new NetworkVariable<int>(30, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
     public float wheelGripFactor = 0.5f;
     public float wheelMass = 20f;
-    public AnimationCurve powerCurve,steeringCurve;
+    public AnimationCurve powerCurve, steeringCurve;
     public float maxAngle = 30f;
-    
-    [Header("Car Input")]
-    public float accelerationInput;
+
+    [Header("Car Input")] public float accelerationInput;
     public float steeringInput;
-    private NetworkObject networkObject;
+    private NetworkObject _networkObject;
+
+    [Header("PowerUp Properties")] public int powerUpCount;
+    public int powerUpLimit;
+    public List<PowerUpType> powerUps = new List<PowerUpType>();
+
 
     private void Update()
-    {    
+    {
         if (isPlayerCar)
         {
             accelerationInput = Input.GetAxis("Vertical");
             steeringInput = Input.GetAxis("Horizontal");
-            if( Input.GetKey(KeyCode.Space) && jumpTime<1f)
+            if (Input.GetKey(KeyCode.Space) && jumpTime < 1f)
             {
                 jumpTime += Time.deltaTime;
             }
-            if(Input.GetKeyUp(KeyCode.Space))
+
+            if (Input.GetKeyUp(KeyCode.Space))
             {
                 isJump = true;
             }
 
-            if ( Input.GetKeyDown(KeyCode.R))
+            if (Input.GetKeyDown(KeyCode.R))
             {
                 isReady.Value = !isReady.Value;
             }
-            wheelAngle.Value = (int) (steeringInput * maxAngle);
+
+            wheelAngle.Value = (int)(steeringInput * maxAngle);
         }
-        wheels[0].localEulerAngles = new Vector3(wheels[0].localEulerAngles.x, wheelAngle.Value, wheels[0].localEulerAngles.z);
-        wheels[1].localEulerAngles = new Vector3(wheels[1].localEulerAngles.x, wheelAngle.Value, wheels[1].localEulerAngles.z);
+
+        wheels[0].localEulerAngles =
+            new Vector3(wheels[0].localEulerAngles.x, wheelAngle.Value, wheels[0].localEulerAngles.z);
+        wheels[1].localEulerAngles =
+            new Vector3(wheels[1].localEulerAngles.x, wheelAngle.Value, wheels[1].localEulerAngles.z);
     }
 
     private void Start()
     {
         StartCoroutine(CalculateSpeed());
-        networkObject = GetComponent<NetworkObject>();
-        if (networkObject.IsOwner)
+        _networkObject = GetComponent<NetworkObject>();
+        if (_networkObject.IsOwner)
         {
             Application.targetFrameRate = 1000;
             isPlayerCar = true;
@@ -102,13 +114,10 @@ public class CarController : NetworkBehaviour
 
     private void FixedUpdate()
     {
-        
-        //apply nitro force
         if (isPlayerCar)
         {
-            if (Input.GetKey(KeyCode.LeftShift) &&nitroAmount > 0)
+            if (Input.GetKey(KeyCode.LeftShift) && nitroAmount > 0)
             {
-                //apply nitro force using nitro curve
                 float availableNitroForce = nitroCurve.Evaluate(nitroAmount) * nitroFactor;
                 carRigidbody.AddForce(transform.forward * availableNitroForce);
                 nitroAmount -= Time.fixedDeltaTime;
@@ -116,17 +125,15 @@ public class CarController : NetworkBehaviour
             }
             else
             {
-                if (nitroAmount < maxNitroAmount)
-                {
-                    nitroAmount += Time.fixedDeltaTime*5;
-                    UIManager.Instance.UpdateNitroVisualizer(nitroAmount / maxNitroAmount);
-                }
+                nitroAmount = Mathf.Min(nitroAmount + Time.fixedDeltaTime, maxNitroAmount);
+                UIManager.Instance.UpdateNitroVisualizer(nitroAmount / maxNitroAmount);
             }
         }
+
         int i = 0;
         foreach (Transform wheel in wheels)
         {
-            wheelMeshes[i].Rotate(Vector3.right, carSpeed * Time.fixedDeltaTime*rotationSpeed);
+            wheelMeshes[i].Rotate(Vector3.right, carSpeed * Time.fixedDeltaTime * rotationSpeed);
             Debug.DrawRay(wheel.position, -wheel.up * wheelRadius, Color.red);
             RaycastHit hit;
             if (Physics.Raycast(wheel.position, -wheel.up, out hit, suspensionRestDistance))
@@ -166,21 +173,24 @@ public class CarController : NetworkBehaviour
                         float availableTorque = powerCurve.Evaluate(normalizedSpeed) * accelerationInput * breakFactor;
                         carRigidbody.AddForceAtPosition(accelerationDirection * availableTorque, position);
                     }
-                    
+
                     //Apply jump force 
-                    if(jumpTime>0f && !isJump )
-                        carRigidbody.AddForceAtPosition(Vector3.down * (jumpFactor * jumpTime/stretchFactor),position);
+                    if (jumpTime > 0f && !isJump)
+                        carRigidbody.AddForceAtPosition(Vector3.down * (jumpFactor * jumpTime / stretchFactor),
+                            position);
                     if (isJump)
                     {
-                        jumpTime=Mathf.Max(jumpTime,0.3f);
-                        if(i==0 || i==1) carRigidbody.AddForceAtPosition(Vector3.up * (jumpFactor * jumpTime),position);
+                        jumpTime = Mathf.Max(jumpTime, 0.3f);
+                        if (i == 0 || i == 1)
+                            carRigidbody.AddForceAtPosition(Vector3.up * (jumpFactor * jumpTime), position);
                         else
                         {
-                            carRigidbody.AddForceAtPosition(Vector3.up * (jumpFactor * jumpTime * 1.05f),position);
+                            carRigidbody.AddForceAtPosition(Vector3.up * (jumpFactor * jumpTime * 1.05f), position);
                         }
                     }
                 }
             }
+
             i++;
         }
 
@@ -189,7 +199,42 @@ public class CarController : NetworkBehaviour
             isJump = false;
             jumpTime = 0f;
         }
-       
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        PowerUp powerUp = other.GetComponent<PowerUp>();
+        if (powerUp != null)
+        {
+            if (powerUpCount >= powerUpLimit)
+            {
+                return;
+            }
+
+            powerUpCount++;
+            powerUps.Add(powerUp.powerUpType);
+            other.GetComponent<NetworkObject>().Despawn(true);
+        }
+    }
+
+    public void UsePowerUp(PowerUpType powerUpType)
+    {
+        if (powerUps.Contains(powerUpType))
+        {
+            powerUps.Remove(powerUpType);
+            powerUpCount--;
+            switch (powerUpType)
+            {
+                case PowerUpType.Nitro:
+                    nitroAmount = maxNitroAmount;
+                    break;
+                case PowerUpType.Repair:
+                    carHealth.Value = 100;
+                    break;
+                case PowerUpType.Fire:
+                    carHealth.Value = Mathf.Max(0, carHealth.Value - 20);
+                    break;
+            }
+        }
     }
 }
-
